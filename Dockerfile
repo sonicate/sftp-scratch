@@ -1,10 +1,12 @@
-FROM alpine:3.21
+FROM almalinux:9-minimal
 
 # Packages:
-#   openssh-server : sshd, the internal-sftp subsystem, and ssh-keygen
-#   shadow         : full useradd/usermod/groupadd/chpasswd (BusyBox's are too limited)
-#   bash           : entrypoint and create-sftp-user rely on bash regex + arrays
-RUN apk add --no-cache bash openssh-server shadow \
+#   openssh-server : sshd + the internal-sftp subsystem
+#   openssh        : ssh-keygen (host-key generation at runtime)
+#   shadow-utils   : useradd/usermod/groupadd/chpasswd (not in the minimal base)
+# bash and getent (glibc-common) are already present in the minimal base.
+RUN microdnf install -y openssh-server openssh shadow-utils \
+    && microdnf clean all \
     && mkdir -p /var/run/sshd /etc/sftp.d \
     && rm -f /etc/ssh/ssh_host_*_key*
 

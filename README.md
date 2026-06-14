@@ -7,8 +7,8 @@ your test harness.
 
 The environment-variable and user-spec interface is intentionally compatible
 with [`atmoz/sftp`](https://github.com/atmoz/sftp), so existing examples and CI
-config translate directly. The image is built on Alpine to keep pulls fast in
-CI (~15–20 MB vs. ~120 MB for a Debian base).
+config translate directly. The image is built on `almalinux:9-minimal` — a
+RHEL 9 userland that stays reasonably small for CI pulls (~40 MB compressed).
 
 ## Quick start
 
