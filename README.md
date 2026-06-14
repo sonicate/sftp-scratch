@@ -16,7 +16,7 @@ CI builds multi-arch (`linux/amd64` + `linux/arm64`) images and publishes them
 to GitHub Container Registry on every push to the default branch and on tags:
 
 ```bash
-docker pull ghcr.io/<owner>/sftp-scratch:latest
+docker pull ghcr.io/sonicate/sftp-scratch:latest
 ```
 
 ## Quick start
