@@ -5,7 +5,9 @@ FROM almalinux:9-minimal
 #   openssh        : ssh-keygen (host-key generation at runtime)
 #   shadow-utils   : useradd/usermod/groupadd/chpasswd (not in the minimal base)
 # bash and getent (glibc-common) are already present in the minimal base.
-RUN microdnf install -y openssh-server openssh shadow-utils \
+RUN microdnf makecache \
+    && microdnf upgrade -y \
+    && microdnf install -y openssh-server openssh shadow-utils \
     && microdnf clean all \
     && mkdir -p /var/run/sshd /etc/sftp.d \
     && rm -f /etc/ssh/ssh_host_*_key*
