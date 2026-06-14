@@ -1,0 +1,9 @@
+.git
+.gitignore
+README.md
+CLAUDE.md
+LICENSE
+data/
+users.conf
+ssh_host_*_key
+ssh_host_*_key.pub

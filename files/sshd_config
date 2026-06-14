@@ -1,0 +1,20 @@
+# Secure defaults for a chrooted, SFTP-only server.
+Protocol 2
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+
+# Skip reverse-DNS on connect (faster, and pointless inside CI networks).
+UseDNS no
+
+# Limited access.
+PermitRootLogin no
+X11Forwarding no
+AllowTcpForwarding no
+
+# Force SFTP and jail every user to their home directory.
+Subsystem sftp internal-sftp
+ForceCommand internal-sftp
+ChrootDirectory %h
+
+# Uncomment for verbose connection logging when debugging CI failures.
+#LogLevel VERBOSE

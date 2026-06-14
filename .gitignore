@@ -1,0 +1,12 @@
+# Generated SSH host keys (never commit these)
+ssh_host_*_key
+ssh_host_*_key.pub
+
+# Local user/config overrides used while testing
+users.conf
+data/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp

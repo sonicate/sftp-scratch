@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# entrypoint — assemble users, ensure host keys, run startup hooks, then sshd.
+set -Eeo pipefail
+
+log() { echo "[entrypoint] $*" >&2; }
+trap 'log "ERROR at line $LINENO: $BASH_COMMAND"' ERR
+
+# Where user definitions are read from and where the merged list is cached.
+userConfPath="/etc/sftp/users.conf"          # mount this read-only to define users
+userConfPathLegacy="/etc/sftp-users.conf"    # older atmoz-style path, still honoured
+userConfFinalPath="/var/run/sftp/users.conf"
+
+# Assemble and provision users only on the first start. The cache file marks
+# that we've already done it, so restarts don't try to recreate users.
+if [ ! -f "$userConfFinalPath" ]; then
+    mkdir -p "$(dirname "$userConfFinalPath")"
+    : > "$userConfFinalPath"
+
+    # Source 1: mounted config file.
+    if [ -f "$userConfPath" ]; then
+        cat "$userConfPath" >> "$userConfFinalPath"
+    elif [ -f "$userConfPathLegacy" ]; then
+        cat "$userConfPathLegacy" >> "$userConfFinalPath"
+    fi
+
+    # Source 2: SFTP_USERS env var (space-separated specs).
+    if [ -n "${SFTP_USERS:-}" ]; then
+        echo "$SFTP_USERS" | tr ' ' '\n' >> "$userConfFinalPath"
+    fi
+
+    # Source 3: command-line args, when they look like user specs (contain ':').
+    if [[ $# -gt 0 && "$1" == *:* ]]; then
+        printf '%s\n' "$@" >> "$userConfFinalPath"
+    fi
+
+    # Provision each user; skip blank lines and comments.
+    while IFS= read -r spec || [ -n "$spec" ]; do
+        [ -z "$spec" ] && continue
+        [[ "$spec" =~ ^[[:space:]]*# ]] && continue
+        create-sftp-user "$spec"
+    done < "$userConfFinalPath"
+fi
+
+# Generate host keys if none were mounted. Mount /etc/ssh/ssh_host_* for a
+# stable server fingerprint across rebuilds.
+[ -f /etc/ssh/ssh_host_ed25519_key ] || ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' < /dev/null
+[ -f /etc/ssh/ssh_host_rsa_key ]     || ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N '' < /dev/null
+chmod 600 /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_rsa_key
+
+# Run executable startup hooks (e.g. custom bind mounts) dropped in /etc/sftp.d/.
+if [ -d /etc/sftp.d ]; then
+    for f in /etc/sftp.d/*; do
+        [ -x "$f" ] && "$f"
+    done
+    unset f
+fi
+
+# Start sshd when given no args or only user specs; otherwise run the command.
+if [[ $# -eq 0 || "$1" == *:* ]]; then
+    exec /usr/sbin/sshd -D -e
+else
+    exec "$@"
+fi

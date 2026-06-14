@@ -1,0 +1,7 @@
+# Shell scripts and config copied into the Linux image must use LF endings,
+# regardless of the host OS, or the shebang/parsing breaks in the container.
+files/entrypoint        text eol=lf
+files/create-sftp-user  text eol=lf
+files/sshd_config       text eol=lf
+Dockerfile              text eol=lf
+*.sh                    text eol=lf
