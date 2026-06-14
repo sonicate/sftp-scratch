@@ -54,6 +54,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          # Always re-resolve the almalinux:9-minimal tag so builds pick up the
+          # latest base image (and its security updates) instead of a cached one.
+          pull: true
           platforms: linux/amd64,linux/arm64
           # Build on PRs to catch breakage, but only push on branch/tag events.
           push: ${{ github.event_name != 'pull_request' }}
