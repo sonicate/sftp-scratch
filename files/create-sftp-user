@@ -28,20 +28,18 @@ reDir='[^:]*'
 spec="$1"
 [ -z "$spec" ] && die "no user spec given"
 
+# Capture groups are numbered by position in the pattern, not by which ones
+# matched, so uid/gid/dir are always groups 4/5/6 — group 3 is just an empty
+# string when the optional ':e' marker is absent. The ':1' strips the leading
+# ':' each group captured.
 if [[ "$spec" =~ ^($reUser)(:$rePass)(:e)?(:$reUid)?(:$reGid)?(:$reDir)?$ ]]; then
     user="${BASH_REMATCH[1]}"
-    pass="${BASH_REMATCH[2]:1}"   # strip the leading ':' the group captured
-    if [ "${BASH_REMATCH[3]}" = ":e" ]; then
-        chpasswdOptions="-e"
-        uid="${BASH_REMATCH[4]:1}"
-        gid="${BASH_REMATCH[5]:1}"
-        dir="${BASH_REMATCH[6]:1}"
-    else
-        chpasswdOptions=""
-        uid="${BASH_REMATCH[3]:1}"
-        gid="${BASH_REMATCH[4]:1}"
-        dir="${BASH_REMATCH[5]:1}"
-    fi
+    pass="${BASH_REMATCH[2]:1}"
+    chpasswdOptions=""
+    [ "${BASH_REMATCH[3]}" = ":e" ] && chpasswdOptions="-e"
+    uid="${BASH_REMATCH[4]:1}"
+    gid="${BASH_REMATCH[5]:1}"
+    dir="${BASH_REMATCH[6]:1}"
 else
     die "invalid user spec '$spec' (expected user:pass[:e][:uid[:gid[:dir1,dir2...]]])"
 fi
