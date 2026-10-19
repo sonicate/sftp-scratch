@@ -6,6 +6,9 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+  # Weekly rebuild (Mondays 06:00 UTC) to pick up base-image and package updates.
+  schedule:
+    - cron: '0 6 * * 1'
 
 env:
   REGISTRY: ghcr.io
@@ -20,18 +23,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # Only authenticate when we intend to push (skip for PRs from forks).
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -39,7 +42,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -51,12 +54,15 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           # Always re-resolve the almalinux:9-minimal tag so builds pick up the
           # latest base image (and its security updates) instead of a cached one.
           pull: true
+          # Scheduled rebuilds skip the layer cache so `microdnf upgrade` actually
+          # re-runs even when the base image digest hasn't changed.
+          no-cache: ${{ github.event_name == 'schedule' }}
           platforms: linux/amd64,linux/arm64
           # Build on PRs to catch breakage, but only push on branch/tag events.
           push: ${{ github.event_name != 'pull_request' }}
