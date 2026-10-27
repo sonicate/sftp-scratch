@@ -8,8 +8,14 @@ UseDNS no
 
 # Limited access.
 PermitRootLogin no
-X11Forwarding no
-AllowTcpForwarding no
+# DisableForwarding covers TCP, agent, X11 and Unix-socket (StreamLocal)
+# forwarding; AllowTcpForwarding alone left Unix-socket forwarding open.
+DisableForwarding yes
+PermitTunnel no
+PermitTTY no
+PermitUserRC no
+PermitUserEnvironment no
+PermitEmptyPasswords no
 
 # Force SFTP and jail every user to their home directory.
 Subsystem sftp internal-sftp

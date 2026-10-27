@@ -19,7 +19,9 @@ die() { log "ERROR: $*"; exit 1; }
 trap 'die "failed at line $LINENO: $BASH_COMMAND"' ERR
 
 # Validation patterns. Password and dir fields simply cannot contain ':'.
-reUser='[A-Za-z0-9._][A-Za-z0-9._-]{0,31}'
+# The username may not start with '.', so '.' and '..' can't turn /home/$user
+# into /home or / (which would then be chowned/chmodded below).
+reUser='[A-Za-z0-9_][A-Za-z0-9._-]{0,31}'
 rePass='[^:]{0,255}'
 reUid='[[:digit:]]*'
 reGid='[[:digit:]]*'
@@ -41,7 +43,20 @@ if [[ "$spec" =~ ^($reUser)(:$rePass)(:e)?(:$reUid)?(:$reGid)?(:$reDir)?$ ]]; th
     gid="${BASH_REMATCH[5]:1}"
     dir="${BASH_REMATCH[6]:1}"
 else
-    die "invalid user spec '$spec' (expected user:pass[:e][:uid[:gid[:dir1,dir2...]]])"
+    die "invalid user spec for '${spec%%:*}' (expected user:pass[:e][:uid[:gid[:dir1,dir2...]]])"
+fi
+
+# Writable dirs must stay strictly inside the chroot. An absolute path, '..',
+# or an empty/'.' component would let `chown -R` below hand the user the chroot
+# root itself (sshd then refuses to chroot) or files outside it, e.g. /etc.
+dirs=()
+if [ -n "$dir" ]; then
+    IFS=',' read -ra dirs <<< "$dir"
+    for d in "${dirs[@]}"; do
+        case "/$d/" in
+            *//*|*/./*|*/../*) die "invalid dir '$d' for user '$user' (must be a relative path below the home dir)" ;;
+        esac
+    done
 fi
 
 getent passwd "$user" >/dev/null && die "user '$user' already exists"
@@ -65,7 +80,7 @@ chmod 755 "/home/$user"
 
 # Password handling.
 if [ -n "$pass" ]; then
-    echo "$user:$pass" | chpasswd $chpasswdOptions
+    printf '%s:%s\n' "$user" "$pass" | chpasswd $chpasswdOptions
 else
     # No password: disable password auth but keep the account usable via keys.
     usermod -p '*' "$user"
@@ -76,18 +91,16 @@ unset pass
 if [ -d "/home/$user/.ssh/keys" ]; then
     mkdir -p "/home/$user/.ssh"
     cat "/home/$user/.ssh/keys/"* >> "/home/$user/.ssh/authorized_keys"
-    chown -R "$user" "/home/$user/.ssh"
+    # Not -R: the mounted keys are typically read-only and needn't be owned.
+    chown "$user" "/home/$user/.ssh" "/home/$user/.ssh/authorized_keys"
     chmod 700 "/home/$user/.ssh"
     chmod 600 "/home/$user/.ssh/authorized_keys"
 fi
 
 # Create writable subdirectories inside the chroot.
-if [ -n "$dir" ]; then
-    IFS=',' read -ra dirs <<< "$dir"
-    for d in "${dirs[@]}"; do
-        mkdir -p "/home/$user/$d"
-        chown -R "$user":users "/home/$user/$d"
-    done
-fi
+for d in "${dirs[@]}"; do
+    mkdir -p "/home/$user/$d"
+    chown -R "$user":users "/home/$user/$d"
+done
 
 log "created user '$user'"

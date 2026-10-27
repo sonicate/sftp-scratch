@@ -13,8 +13,9 @@ userConfFinalPath="/var/run/sftp/users.conf"
 # Assemble and provision users only on the first start. The cache file marks
 # that we've already done it, so restarts don't try to recreate users.
 if [ ! -f "$userConfFinalPath" ]; then
-    mkdir -p "$(dirname "$userConfFinalPath")"
-    : > "$userConfFinalPath"
+    # The merged list holds plaintext passwords; keep it root-only.
+    mkdir -p -m 700 "$(dirname "$userConfFinalPath")"
+    (umask 077 && : > "$userConfFinalPath")
 
     # Source 1: mounted config file.
     if [ -f "$userConfPath" ]; then
